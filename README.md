@@ -20,7 +20,7 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 
 1. **Clone the repo:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/discomusicbot.git
+   git clone https://github.com/djrobzilla/discomusicbot.git
    cd discomusicbot
    ```
 
