@@ -91,4 +91,4 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 
 ## License
 
-MIT
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
