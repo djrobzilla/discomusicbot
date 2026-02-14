@@ -10,6 +10,9 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 - MP3 caching to avoid re-downloading
 - Per-guild playback (works across multiple servers)
 - **Chillax mode** — AI-powered auto-DJ that continuously plays music matching a vibe (powered by Claude)
+- Smart prefetching — next song is downloaded while the current one plays for gapless transitions
+- `/reroll` — don't like the next pick? Reroll for a different suggestion
+- Downloaded MP3s named as `Artist - Album - Title.mp3` for easy browsing
 
 ## Requirements
 
@@ -88,6 +91,7 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 | `/previous` | Go to previous song |
 | `/chillax <prompt>` | Start AI auto-DJ matching a vibe (e.g. "chill jazz", "90s grunge") |
 | `/stopchillax` | Stop chillax auto-DJ mode |
+| `/reroll` | Reroll the next chillax song pick |
 | `/restartplaylist` | Restart queue from beginning |
 | `/createplaylist <name>` | Create empty playlist |
 | `/addtoplaylist <name> <query>` | Add song to playlist |

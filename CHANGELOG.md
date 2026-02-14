@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.2.0 - 2026-02-14
+
+### Added
+- Smart prefetching: next chillax track downloads while current song plays for gapless playback
+- "Up next" announcements in chat when a track is prefetched
+- `/reroll` command to discard the prefetched pick and get a new suggestion
+- Downloaded MP3s now named as `Artist - Album - Title.mp3` (falls back to `Artist - Title.mp3`)
+
+### Fixed
+- Cascading prefetch bug when restarting chillax mid-song (generation counter approach)
+
 ## v1.1.0 - 2026-02-14
 
 ### Added
