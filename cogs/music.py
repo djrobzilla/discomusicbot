@@ -181,6 +181,20 @@ class Music(commands.Cog):
             f"Use `/stopchillax` to stop."
         )
 
+    @app_commands.command(name="reroll", description="Reroll the next chillax song pick")
+    async def reroll(self, interaction: discord.Interaction):
+        player = get_player(interaction.guild_id)
+        if not player.chillax_active:
+            await interaction.response.send_message("Chillax mode is not active.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        success = await player.reroll()
+        if success:
+            await interaction.followup.send("Rerolled! A new song will be picked.")
+        else:
+            await interaction.followup.send("Could not reroll right now.", ephemeral=True)
+
     @app_commands.command(name="stopchillax", description="Stop chillax auto-DJ mode")
     async def stopchillax(self, interaction: discord.Interaction):
         player = get_player(interaction.guild_id)

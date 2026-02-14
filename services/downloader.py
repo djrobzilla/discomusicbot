@@ -29,9 +29,22 @@ class Track:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
-def _cached_mp3(video_id: str) -> Path | None:
-    path = MP3S_DIR / f"{video_id}.mp3"
-    return path if path.exists() else None
+def _build_mp3_filename(artist: str, album: str | None, title: str) -> str:
+    if album:
+        name = f"{artist} - {album} - {title}"
+    else:
+        name = f"{artist} - {title}"
+    return sanitize_filename(name) + ".mp3"
+
+
+def _find_cached_mp3(video_id: str, pretty_name: str) -> Path | None:
+    pretty_path = MP3S_DIR / pretty_name
+    if pretty_path.exists():
+        return pretty_path
+    legacy_path = MP3S_DIR / f"{video_id}.mp3"
+    if legacy_path.exists():
+        return legacy_path
+    return None
 
 
 def download_and_convert(query: str) -> Track:
@@ -42,7 +55,7 @@ def download_and_convert(query: str) -> Track:
 
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": str(VIDEOS_DIR / "%(id)s.%(ext)s"),
+        "outtmpl": str(MP3S_DIR / "%(id)s.%(ext)s"),
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
@@ -61,10 +74,12 @@ def download_and_convert(query: str) -> Track:
         video_id = info["id"]
         title = info.get("title", "Unknown")
         artist = info.get("artist") or info.get("uploader") or "Unknown"
+        album = info.get("album") or None
         url = info.get("webpage_url", query)
         duration = info.get("duration", 0)
 
-        cached = _cached_mp3(video_id)
+        pretty_name = _build_mp3_filename(artist, album, title)
+        cached = _find_cached_mp3(video_id, pretty_name)
         if cached:
             log.info("Cache hit for %s", video_id)
             return Track(
@@ -77,11 +92,18 @@ def download_and_convert(query: str) -> Track:
             )
 
         log.info("Downloading %s", video_id)
-        ydl_opts["outtmpl"] = str(MP3S_DIR / "%(id)s.%(ext)s")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl_dl:
             ydl_dl.download([url])
 
-        mp3_path = MP3S_DIR / f"{video_id}.mp3"
+        # Rename from video_id.mp3 to pretty name
+        raw_path = MP3S_DIR / f"{video_id}.mp3"
+        pretty_path = MP3S_DIR / pretty_name
+        if raw_path.exists():
+            raw_path.rename(pretty_path)
+            mp3_path = pretty_path
+        else:
+            mp3_path = raw_path
+
         return Track(
             title=title,
             artist=artist,

@@ -27,6 +27,7 @@ class Player:
         self.chillax_prompt: str = ""
         self.chillax_guild_id: int | None = None
         self._chillax_loading: bool = False
+        self._prefetch_task: asyncio.Task | None = None
 
     @property
     def current_track(self) -> Track | None:
@@ -84,6 +85,9 @@ class Player:
                 self._loop,
             )
 
+        if self.chillax_active:
+            asyncio.run_coroutine_threadsafe(self._chillax_prefetch(), self._loop)
+
     def start_chillax(self, guild_id: int, prompt: str):
         self.chillax_active = True
         self.chillax_prompt = prompt
@@ -94,6 +98,9 @@ class Player:
         self.chillax_active = False
         self.chillax_prompt = ""
         self._chillax_loading = False
+        if self._prefetch_task and not self._prefetch_task.done():
+            self._prefetch_task.cancel()
+        self._prefetch_task = None
 
     def _after_playback(self, error: Exception | None):
         if error:
@@ -110,7 +117,81 @@ class Player:
             self._chillax_loading = True
             asyncio.run_coroutine_threadsafe(self._chillax_next(), self._loop)
 
+    async def _chillax_prefetch(self):
+        """Prefetch the next chillax track in the background while current song plays."""
+        if not self.chillax_active:
+            return
+
+        # Don't prefetch if there's already a track queued ahead
+        if self.current_index + 1 < len(self.queue):
+            return
+
+        from services.recommender import get_recommender
+        from services.downloader import download_and_convert
+
+        try:
+            recommender = get_recommender()
+            loop = asyncio.get_running_loop()
+
+            search_query = await loop.run_in_executor(
+                None, recommender.recommend_next, self.chillax_guild_id, self.chillax_prompt
+            )
+
+            if not self.chillax_active:
+                return
+
+            if search_query is None:
+                log.warning("Chillax prefetch: no recommendation found")
+                return
+
+            track = await loop.run_in_executor(None, download_and_convert, search_query)
+
+            if not self.chillax_active:
+                return
+
+            self.add_track(track)
+            log.info("Chillax prefetched: %s", track.title)
+
+            if self.text_channel:
+                await self.text_channel.send(
+                    f"Up next: **{track.title}** by {track.artist} — use `/reroll` to skip this pick"
+                )
+
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            log.error("Chillax prefetch failed: %s", e)
+
+    async def reroll(self) -> bool:
+        """Discard the prefetched track and fetch a new one."""
+        if not self.chillax_active:
+            return False
+
+        # Cancel any in-flight prefetch
+        if self._prefetch_task and not self._prefetch_task.done():
+            self._prefetch_task.cancel()
+            self._prefetch_task = None
+
+        # Remove the prefetched track (anything after current_index)
+        if self.current_index + 1 < len(self.queue):
+            removed = self.queue[self.current_index + 1:]
+            del self.queue[self.current_index + 1:]
+
+            # Remove from recommender history so it can suggest different songs
+            from services.recommender import get_recommender
+            recommender = get_recommender()
+            history = recommender.get_history(self.chillax_guild_id)
+            for track in removed:
+                search_str = f"{track.artist} - {track.title}"
+                if search_str in history:
+                    history.remove(search_str)
+
+        # Fetch a new one
+        await self._chillax_prefetch()
+        return True
+
     async def _chillax_next(self):
+        """Fallback: fetch next track on demand if prefetch didn't complete in time."""
         from services.recommender import get_recommender
         from services.downloader import download_and_convert
 
