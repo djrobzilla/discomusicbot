@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0 - 2026-02-14
+
+### Added
+- Chillax mode: AI-powered continuous auto-DJ (`/chillax <prompt>`, `/stopchillax`)
+- Claude Haiku integration for intelligent song recommendations based on vibes, artists, or genres
+- Per-guild play history tracking to avoid repeat songs in chillax mode
+- New dependency: `anthropic` SDK
+
 ## v1.0.0 - 2026-02-14
 
 ### Added

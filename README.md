@@ -9,12 +9,14 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 - Named playlists with save/load (JSON persistence)
 - MP3 caching to avoid re-downloading
 - Per-guild playback (works across multiple servers)
+- **Chillax mode** — AI-powered auto-DJ that continuously plays music matching a vibe (powered by Claude)
 
 ## Requirements
 
 - Python 3.10+
 - FFmpeg (must be installed and in PATH)
 - A Discord bot token
+- An Anthropic API key (for chillax mode) — get one at [console.anthropic.com](https://console.anthropic.com)
 
 ## Installation
 
@@ -53,7 +55,11 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and add your Discord bot token. Alternatively, set the `BOT_TOKEN` environment variable directly.
+   Edit `.env` and add your Discord bot token and Anthropic API key:
+   ```
+   BOT_TOKEN=your_discord_bot_token
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   ```
 
 6. **Run the bot:**
    ```bash
@@ -80,6 +86,8 @@ A Python Discord bot that plays music from YouTube in voice channels. Supports U
 | `/skip` | Skip to next song |
 | `/next` | Skip to next song |
 | `/previous` | Go to previous song |
+| `/chillax <prompt>` | Start AI auto-DJ matching a vibe (e.g. "chill jazz", "90s grunge") |
+| `/stopchillax` | Stop chillax auto-DJ mode |
 | `/restartplaylist` | Restart queue from beginning |
 | `/createplaylist <name>` | Create empty playlist |
 | `/addtoplaylist <name> <query>` | Add song to playlist |

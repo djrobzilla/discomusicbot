@@ -22,6 +22,12 @@ class Player:
         self.text_channel: discord.abc.Messageable | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 
+        # Chillax mode state
+        self.chillax_active: bool = False
+        self.chillax_prompt: str = ""
+        self.chillax_guild_id: int | None = None
+        self._chillax_loading: bool = False
+
     @property
     def current_track(self) -> Track | None:
         if 0 <= self.current_index < len(self.queue):
@@ -78,14 +84,67 @@ class Player:
                 self._loop,
             )
 
+    def start_chillax(self, guild_id: int, prompt: str):
+        self.chillax_active = True
+        self.chillax_prompt = prompt
+        self.chillax_guild_id = guild_id
+        self._chillax_loading = False
+
+    def stop_chillax(self):
+        self.chillax_active = False
+        self.chillax_prompt = ""
+        self._chillax_loading = False
+
     def _after_playback(self, error: Exception | None):
         if error:
             log.error("Playback error: %s", error)
             return
+
         if self.current_index + 1 < len(self.queue):
             self.current_index += 1
             if self._loop:
                 asyncio.run_coroutine_threadsafe(self.play_track(), self._loop)
+            return
+
+        if self.chillax_active and self._loop and not self._chillax_loading:
+            self._chillax_loading = True
+            asyncio.run_coroutine_threadsafe(self._chillax_next(), self._loop)
+
+    async def _chillax_next(self):
+        from services.recommender import get_recommender
+        from services.downloader import download_and_convert
+
+        try:
+            recommender = get_recommender()
+            loop = asyncio.get_running_loop()
+
+            search_query = await loop.run_in_executor(
+                None, recommender.recommend_next, self.chillax_guild_id, self.chillax_prompt
+            )
+
+            if search_query is None:
+                if self.text_channel:
+                    await self.text_channel.send(
+                        "Chillax mode: Could not find more recommendations. Stopping."
+                    )
+                self.stop_chillax()
+                return
+
+            track = await loop.run_in_executor(None, download_and_convert, search_query)
+
+            position = self.add_track(track)
+            await self.play_track(position)
+
+        except Exception as e:
+            log.error("Chillax next track failed: %s", e)
+            if self.text_channel:
+                await self.text_channel.send("Chillax mode: Error fetching next track. Retrying...")
+            await asyncio.sleep(3)
+            self._chillax_loading = False
+            if self.chillax_active:
+                await self._chillax_next()
+        finally:
+            self._chillax_loading = False
 
     async def skip(self):
         if self.current_index + 1 < len(self.queue):
@@ -119,6 +178,7 @@ class Player:
     def stop(self):
         if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
             self.voice_client.stop()
+        self.stop_chillax()
         self.clear_queue()
 
 
