@@ -28,6 +28,7 @@ class Player:
         self.chillax_guild_id: int | None = None
         self._chillax_loading: bool = False
         self._prefetch_task: asyncio.Task | None = None
+        self._generation: int = 0
 
     @property
     def current_track(self) -> Track | None:
@@ -72,11 +73,13 @@ class Player:
             return
 
         if self.voice_client.is_playing():
+            self._generation += 1
             self.voice_client.stop()
 
         source = discord.FFmpegOpusAudio(track.mp3_path)
         self._loop = asyncio.get_running_loop()
-        self.voice_client.play(source, after=self._after_playback)
+        gen = self._generation
+        self.voice_client.play(source, after=lambda e: self._after_playback(e, gen))
         log.info("Now playing: %s", track.title)
 
         if self.text_channel:
@@ -102,9 +105,12 @@ class Player:
             self._prefetch_task.cancel()
         self._prefetch_task = None
 
-    def _after_playback(self, error: Exception | None):
+    def _after_playback(self, error: Exception | None, gen: int):
         if error:
             log.error("Playback error: %s", error)
+            return
+
+        if gen != self._generation:
             return
 
         if self.current_index + 1 < len(self.queue):
@@ -257,9 +263,10 @@ class Player:
             self.voice_client.resume()
 
     def stop(self):
+        self.stop_chillax()
+        self._generation += 1
         if self.voice_client and (self.voice_client.is_playing() or self.voice_client.is_paused()):
             self.voice_client.stop()
-        self.stop_chillax()
         self.clear_queue()
 
 
