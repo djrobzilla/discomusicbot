@@ -10,8 +10,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger(__name__)
 
 if not discord.opus.is_loaded():
-    discord.opus.load_opus("/usr/lib/x86_64-linux-gnu/libopus.so.0")
-    log.info("Loaded opus: %s", discord.opus.is_loaded())
+    import sys
+    _opus_candidates = (
+        ["/usr/lib/x86_64-linux-gnu/libopus.so.0"] if sys.platform == "linux"
+        else ["opus", "libopus-0", "libopus0"]
+    )
+    for _name in _opus_candidates:
+        try:
+            discord.opus.load_opus(_name)
+            break
+        except Exception:
+            continue
+    log.info("Opus loaded: %s", discord.opus.is_loaded())
 
 intents = discord.Intents.default()
 intents.message_content = True

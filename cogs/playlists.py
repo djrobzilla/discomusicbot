@@ -69,7 +69,7 @@ class Playlists(commands.Cog):
 
         _playlists[name].append(track)
         await interaction.followup.send(
-            f"Added **{track.title}** to playlist **{name}** (#{len(_playlists[name])})"
+            f"Added **[{track.title}]({track.url})** to playlist **{name}** (#{len(_playlists[name])})"
         )
 
     @app_commands.command(name="removefromplaylist", description="Remove a song from a playlist by index")

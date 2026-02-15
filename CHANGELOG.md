@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.3.0 - 2026-02-14
+
+### Added
+- `/silent` command to toggle silent mode — suppresses auto chat messages, makes command responses ephemeral
+- `/clearcache` command to clear the downloaded audio file cache
+- Clickable song titles in all bot messages (markdown links to YouTube)
+- Cross-platform opus loading (Windows + Linux support)
+
+### Changed
+- Switched audio format from MP3 (192kbps) to Opus (128kbps) for better quality at lower bitrate
+- Eliminated duplicate "Now playing" announcements when using `/play`, `/skip`, `/previous`, `/restart`
+- Removed old project plan file
+
 ## v1.2.0 - 2026-02-14
 
 ### Added
