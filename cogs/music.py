@@ -24,7 +24,7 @@ class Music(commands.Cog):
         player = get_player(interaction.guild_id)
         try:
             await player.connect(interaction.user.voice.channel)
-            await interaction.response.send_message(f"Joined **{interaction.user.voice.channel.name}**.")
+            await interaction.response.send_message(f"Joined **{interaction.user.voice.channel.name}**.", ephemeral=player.silent)
         except Exception as e:
             await interaction.response.send_message(f"Failed to join: {e}", ephemeral=True)
 
@@ -36,7 +36,7 @@ class Music(commands.Cog):
             return
         player.stop()
         await player.disconnect()
-        await interaction.response.send_message("Left the voice channel.")
+        await interaction.response.send_message("Left the voice channel.", ephemeral=player.silent)
 
     @app_commands.command(name="play", description="Play a song from YouTube URL or search query")
     @app_commands.describe(query="YouTube URL or artist/song name to search")
@@ -45,9 +45,8 @@ class Music(commands.Cog):
             await interaction.response.send_message("You must be in a voice channel.", ephemeral=True)
             return
 
-        await interaction.response.defer()
-
         player = get_player(interaction.guild_id)
+        await interaction.response.defer(ephemeral=player.silent)
         player.text_channel = interaction.channel
 
         try:
@@ -65,11 +64,11 @@ class Music(commands.Cog):
         position = player.add_track(track)
 
         if not player.is_playing:
-            await player.play_track(position)
-            await interaction.followup.send(f"Now playing: **{track.title}** by {track.artist}")
+            await player.play_track(position, announce=False)
+            await interaction.followup.send(f"Now playing: **[{track.title}]({track.url})** by {track.artist}")
         else:
             await interaction.followup.send(
-                f"Added to queue (#{position + 1}): **{track.title}** by {track.artist}"
+                f"Added to queue (#{position + 1}): **[{track.title}]({track.url})** by {track.artist}"
             )
 
     @app_commands.command(name="pause", description="Pause the current track")
@@ -79,7 +78,7 @@ class Music(commands.Cog):
             await interaction.response.send_message("Nothing is playing.", ephemeral=True)
             return
         player.pause()
-        await interaction.response.send_message("Paused.")
+        await interaction.response.send_message("Paused.", ephemeral=player.silent)
 
     @app_commands.command(name="resume", description="Resume playback")
     async def resume(self, interaction: discord.Interaction):
@@ -88,21 +87,21 @@ class Music(commands.Cog):
             await interaction.response.send_message("Nothing is paused.", ephemeral=True)
             return
         player.resume()
-        await interaction.response.send_message("Resumed.")
+        await interaction.response.send_message("Resumed.", ephemeral=player.silent)
 
     @app_commands.command(name="stop", description="Stop playback and clear queue")
     async def stop(self, interaction: discord.Interaction):
         player = get_player(interaction.guild_id)
         player.stop()
         await player.disconnect()
-        await interaction.response.send_message("Stopped and cleared queue.")
+        await interaction.response.send_message("Stopped and cleared queue.", ephemeral=player.silent)
 
     @app_commands.command(name="skip", description="Skip to next song")
     async def skip(self, interaction: discord.Interaction):
         player = get_player(interaction.guild_id)
         if await player.skip():
             track = player.current_track
-            await interaction.response.send_message(f"Skipped to: **{track.title}** by {track.artist}")
+            await interaction.response.send_message(f"Skipped to: **[{track.title}]({track.url})** by {track.artist}", ephemeral=player.silent)
         else:
             await interaction.response.send_message("No more songs in queue.", ephemeral=True)
 
@@ -115,7 +114,7 @@ class Music(commands.Cog):
         player = get_player(interaction.guild_id)
         if await player.previous():
             track = player.current_track
-            await interaction.response.send_message(f"Playing previous: **{track.title}** by {track.artist}")
+            await interaction.response.send_message(f"Playing previous: **[{track.title}]({track.url})** by {track.artist}", ephemeral=player.silent)
         else:
             await interaction.response.send_message("Already at the first song.", ephemeral=True)
 
@@ -124,7 +123,7 @@ class Music(commands.Cog):
         player = get_player(interaction.guild_id)
         if await player.restart():
             track = player.current_track
-            await interaction.response.send_message(f"Restarted. Now playing: **{track.title}**")
+            await interaction.response.send_message(f"Restarted. Now playing: **[{track.title}]({track.url})**", ephemeral=player.silent)
         else:
             await interaction.response.send_message("Queue is empty.", ephemeral=True)
 
@@ -135,9 +134,8 @@ class Music(commands.Cog):
             await interaction.response.send_message("You must be in a voice channel.", ephemeral=True)
             return
 
-        await interaction.response.defer()
-
         player = get_player(interaction.guild_id)
+        await interaction.response.defer(ephemeral=player.silent)
         player.text_channel = interaction.channel
 
         try:
@@ -173,11 +171,11 @@ class Music(commands.Cog):
             return
 
         position = player.add_track(track)
-        await player.play_track(position)
+        await player.play_track(position, announce=False)
 
         await interaction.followup.send(
             f"Chillax mode activated! Vibe: **{prompt}**\n"
-            f"Now playing: **{track.title}** by {track.artist}\n"
+            f"Now playing: **[{track.title}]({track.url})** by {track.artist}\n"
             f"Use `/stopchillax` to stop."
         )
 
@@ -188,7 +186,7 @@ class Music(commands.Cog):
             await interaction.response.send_message("Chillax mode is not active.", ephemeral=True)
             return
 
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=player.silent)
         success = await player.reroll()
         if success:
             await interaction.followup.send("Rerolled! A new song will be picked.")
@@ -206,8 +204,29 @@ class Music(commands.Cog):
         get_recommender().clear_history(interaction.guild_id)
         player.stop_chillax()
         await interaction.response.send_message(
-            "Chillax mode deactivated. Current song will finish but no more will be queued."
+            "Chillax mode deactivated. Current song will finish but no more will be queued.",
+            ephemeral=player.silent,
         )
+
+
+    @app_commands.command(name="silent", description="Toggle silent mode (suppresses auto chat messages)")
+    async def silent(self, interaction: discord.Interaction):
+        player = get_player(interaction.guild_id)
+        player.silent = not player.silent
+        state = "on" if player.silent else "off"
+        await interaction.response.send_message(f"Silent mode **{state}**.", ephemeral=True)
+
+    @app_commands.command(name="clearcache", description="Clear the downloaded audio file cache")
+    async def clearcache(self, interaction: discord.Interaction):
+        from config import MP3S_DIR, VIDEOS_DIR
+        import shutil
+
+        count = sum(1 for _ in MP3S_DIR.iterdir()) if MP3S_DIR.exists() else 0
+        shutil.rmtree(MP3S_DIR, ignore_errors=True)
+        shutil.rmtree(VIDEOS_DIR, ignore_errors=True)
+        MP3S_DIR.mkdir(parents=True, exist_ok=True)
+        VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+        await interaction.response.send_message(f"Cleared {count} cached audio files.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

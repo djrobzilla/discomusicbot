@@ -5,3 +5,4 @@ mp3s/
 __pycache__/
 *.pyc
 .claude/
+discomusicbot.code-workspace

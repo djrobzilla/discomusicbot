@@ -29,6 +29,7 @@ class Player:
         self._chillax_loading: bool = False
         self._prefetch_task: asyncio.Task | None = None
         self._generation: int = 0
+        self.silent: bool = False
 
     @property
     def current_track(self) -> Track | None:
@@ -62,7 +63,7 @@ class Player:
             await self.voice_client.disconnect()
         self.voice_client = None
 
-    async def play_track(self, index: int | None = None):
+    async def play_track(self, index: int | None = None, announce: bool = True):
         if index is not None:
             self.current_index = index
         elif self.current_index == -1:
@@ -76,17 +77,20 @@ class Player:
             self._generation += 1
             self.voice_client.stop()
 
-        source = discord.FFmpegOpusAudio(track.mp3_path)
+        source = discord.FFmpegOpusAudio(str(track.mp3_path), before_options="-nostdin")
         self._loop = asyncio.get_running_loop()
         gen = self._generation
         self.voice_client.play(source, after=lambda e: self._after_playback(e, gen))
         log.info("Now playing: %s", track.title)
 
-        if self.text_channel:
-            asyncio.run_coroutine_threadsafe(
-                self.text_channel.send(f"Now playing: **{track.title}** by {track.artist}"),
-                self._loop,
-            )
+        if announce:
+            if self.text_channel and not self.silent:
+                asyncio.run_coroutine_threadsafe(
+                    self.text_channel.send(f"Now playing: **[{track.title}]({track.url})** by {track.artist}"),
+                    self._loop,
+                )
+            elif self.silent:
+                log.info("[silent] Now playing: %s by %s (%s)", track.title, track.artist, track.url)
 
         if self.chillax_active:
             asyncio.run_coroutine_threadsafe(self._chillax_prefetch(), self._loop)
@@ -158,10 +162,12 @@ class Player:
             self.add_track(track)
             log.info("Chillax prefetched: %s", track.title)
 
-            if self.text_channel:
+            if self.text_channel and not self.silent:
                 await self.text_channel.send(
-                    f"Up next: **{track.title}** by {track.artist} — use `/reroll` to skip this pick"
+                    f"Up next: **[{track.title}]({track.url})** by {track.artist} — use `/reroll` to skip this pick"
                 )
+            elif self.silent:
+                log.info("[silent] Up next: %s by %s (%s)", track.title, track.artist, track.url)
 
         except asyncio.CancelledError:
             return
@@ -236,21 +242,21 @@ class Player:
     async def skip(self):
         if self.current_index + 1 < len(self.queue):
             self.current_index += 1
-            await self.play_track()
+            await self.play_track(announce=False)
             return True
         return False
 
     async def previous(self):
         if self.current_index > 0:
             self.current_index -= 1
-            await self.play_track()
+            await self.play_track(announce=False)
             return True
         return False
 
     async def restart(self):
         if self.queue:
             self.current_index = 0
-            await self.play_track()
+            await self.play_track(announce=False)
             return True
         return False
 
